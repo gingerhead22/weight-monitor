@@ -6,8 +6,12 @@ import time
 import sys
 import datetime
 import pandas as pd
+from matplotlib.dates import date2num
+from plotly.offline import download_plotlyjs, init_notebook_mode, plot, iplot
+import plotly.graph_objs as go
+from plotly import tools
 
-LOG_DICT_PATH = "../logs.pickle"
+LOG_DICT_PATH = "logs.pickle"
 
 
 
@@ -39,7 +43,7 @@ def set_goal():
 
 def load_dict(log_dict_path):
 	with open(log_dict_path, "rb") as handle:
-		log_dict = pickle.load(log_dict)
+		log_dict = pickle.load(handle)
 	return log_dict 
 
 def input_progress():
@@ -58,44 +62,42 @@ def plot_progress(log_dict):
 	print(goal_date)
 	goal_weight = goal["weight"]
 	goal_fat_perc = goal["fat_perc"] 
-
 	logs = log_dict["logs"]
-
 	dates = []
 	weights = []
 	fat_percs = []
 
 	for log in logs:
-		dates.append(pd.to_datetime(log["datetime"]))
+		dates.append(log["datetime"])
 		print(dates[0])
 		weights.append(log["weight"])
 		fat_percs.append(log["fat_perc"])
 	dates = np.array(dates)
 	weights = np.array(weights)
-	fat_perc = np.array(fat_perc)
+	fat_percs = np.array(fat_percs)
+	
+	goal_weight = go.Scatter(x = [dates[0], goal_date], y = [weights[0], goal_weight], line = dict(dash = "dash"), name = "weight goal")
+	weight_progress = go.Scatter(x = dates, y = weights, name = "weight progress")
 
-	ax1 = plt.subplot(212)
-	ax1.set_title("Weight Progress")
-	ax1.set_xlabel("time")
-	ax1.set_ylabel("weight")
-	ax1.grid(True)
-	ax1.plot((dates[0], goal_date), (weights[0], goal_weight), "r")
-	ax1.plot(dates, weights, "b")
-	plt.setp(ax1.get_xticklabels(), fontsize=6)
+	goal_fat_perc = go.Scatter(x = [dates[0], goal_date], y = [fat_percs[0], goal_fat_perc], line = dict(dash = "dash"), name = "fat percentage goal")
+	fat_perc_progress = go.Scatter(x = dates, y = fat_percs, name = "fat percentage progress")
 
-	ax2 = plt.subplot(211, sharex = ax1)
-	ax2.set_title("Fat Percentage Progress")
-	ax2.set_ylabel("fat percentage")
-	ax2.grid(True)
-	ax2.plot((dates[0], goal_date), (fat_percs[0], goal_fat_perc), "r")
-	ax2.plot((dates, fat_percs, "b"))
-	plt.setp(ax2.get_xticklabels(), visible=False)
-	plt.savefig("../plots/plot.png")
-	plt.show()
+	fig = tools.make_subplots(rows=2, cols=1, subplot_titles = ("Weight Progress", "Fat Percentage Progress"))
+	fig.append_trace(goal_weight, 1, 1)
+	fig.append_trace(weight_progress, 1, 1)
+
+	fig.append_trace(goal_fat_perc, 2, 1)
+	fig.append_trace(fat_perc_progress, 2, 1)
+
+	fig['layout']['yaxis1'].update(title='Weight(kg)')
+	fig['layout']['yaxis2'].update(title='Fat Percentage(%)')
+	fig['layout']['xaxis2'].update(title='Date')
+
+	plot(fig, filename = "plot.html")
 
 def save_progress(log_dict):
-	with open("../logs.pickle", "wb") as handle:
-		pickle.dump(log_dict)
+	with open(LOG_DICT_PATH, "wb") as handle:
+		pickle.dump(log_dict, handle)
 	return True
 
 def main():
@@ -104,7 +106,7 @@ def main():
 		log_dict = set_goal()
 	else:
 		log_dict = load_dict(LOG_DICT_PATH)
-
+	print("DEBUG")
 	state = input_progress()
 	log_dict["logs"].append(state)
 
